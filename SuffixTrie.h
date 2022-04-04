@@ -13,7 +13,7 @@ using namespace std;
 class SuffixTrie {
     struct SuffixNode{
         int64_t l=0;
-        int64_t r=0;
+        int64_t r=-1;   //-1表示右端点未定
         set<SuffixNode *> child;    //使用set存子节点，crud时更高效
         SuffixNode *SuffixLink= nullptr;
         SuffixNode()=default;
@@ -21,37 +21,34 @@ class SuffixTrie {
         SuffixNode(int64_t l,int64_t r):l(l),r(r){}
     };
     bool existPrefixContainSuffix(int64_t left, int64_t right){
-        bool flag=0;
-        queue<SuffixNode *> q;
-        q.push(activeNode);
-        while(!q.empty()){
-            auto now=q.front();
-            activeLength=0;
-            if(now!= nullptr)
-                for (const auto &item : now->child){
-                    while (item->l+activeLength<=right and str[item->l+activeLength]==str[left])
-                        activeLength++;
-                    --activeLength;
-                    if(item->l+activeLength<right)  return 1;
-                    if(activeLength){
-                        activeNode=item;
-                        q.push(item);
-                        flag=1;
-                        break;
-                    }
+        SuffixNode *it= nullptr;
+        if(activeEdge== nullptr) {
+            for (const auto &item : activeNode->child)
+                if (str[item->l] == str[right]) {
+                    activeEdge = it = item;
+                    break;
                 }
-            q.pop();
+            if(it== nullptr)    return 0;
         }
-        return flag;
+        if(str[activeEdge->l+activeLength]==str[activeEdge->r==-1?right:activeEdge->r]){
+            ++activeLength;
+            if(activeEdge->l+activeLength>(activeEdge->r==-1?right:activeEdge->r)){
+                activeLength=0;
+                activeNode=activeEdge;
+                activeEdge= nullptr;
+            }
+            return 1;
+        }else return 0;
     }
     void changeActive(int64_t left, int64_t right){
-        if(!activeLength)   return ;
         //rule 1:
         if(activeNode==root){
             --activeLength;
-            for (const auto &item : root->child)
-                if(str[item->l]==str[left])
-                    activeEdge=item;
+            if(!activeLength)
+                for (const auto &item : root->child)
+                    if(str[item->l]==str[left])
+                        activeEdge=item;
+                    //考虑需要将activeEdge置为null的情况
             return ;
         }
         //rule 3:
@@ -60,7 +57,8 @@ class SuffixTrie {
             return ;
         }else{
             activeNode=root;
-            existPrefixContainSuffix(left, right);
+            //这里可能要写循环
+//            existPrefixContainSuffix(left, right);
         }
     }
 public:
@@ -80,41 +78,36 @@ public:
     void rebuild(const std::string &s, const char last='\0'){
         str=s;
         str.push_back(last);
-        root=new SuffixNode(-1,-1);//标致为根节点，不存放任何字符
+        root=new SuffixNode(-1);//标致为根节点，不存放任何字符
         SuffixNode *previous= nullptr;
         int64_t left=0,right=0;
         remainder=activeLength=0;
         activeNode=root;
         activeEdge= nullptr;  //非空情况表示要对活动节点的哪个子节点进行分裂
         while (right!=str.size()-1 and left!=str.size()-1){
-            //下面的最外层if-else可以优化结构
-            if(existPrefixContainSuffix(left, right)){
-                //我们仅记录, 并不进行实际操作
-                ++remainder;
-            }else{  //这里一定有remainder>0吗?
+            ++remainder;
+            if(!existPrefixContainSuffix(left, right)){
                 previous= nullptr;
-                ++remainder;
                 while (remainder>0){
-                    if(activeLength==0){
-                        //这个情况下的活动点的设置要单独分开
+                    if(!activeLength){
                         //activeLength=0说明不需要分裂，直接给activeNode添加子节点
                         activeNode->child.insert(new SuffixNode(right));
                     }else{
-                        //对活动节点的某个子节点(activeEdge)进行分裂
+                        auto temp=new SuffixNode(activeEdge->l,activeEdge->l-activeLength+1);
                         activeNode->child.erase(activeEdge);
-                        //下面这个节点不会是叶子节点了，所以左右端点都可以定下来了
-                        // rule 2 and 4:
-                        if(previous!= nullptr)  {
-                            previous->SuffixLink=new SuffixNode(activeEdge->l,activeEdge->l-activeLength+1);
-                            previous=previous->SuffixLink;
-                        }else previous=new SuffixNode(activeEdge->l,activeEdge->l-activeLength+1);
-                        activeNode->child.insert(previous);
-                        //下面的两个新插入的节点后续还会是叶子节点，所以只能定下左端点
-                        activeEdge->child.insert(new SuffixNode(activeEdge->l-activeLength+2));
-                        activeEdge->child.insert(new SuffixNode(right));
-                        //activeLength, activeEdge, activeNode都需要更新, 交给下面的函数进行更新
-                        changeActive(++left, right);
+                        activeNode->child.insert(temp);
+                        temp->child.insert(activeEdge);
+                        activeEdge->l=activeEdge->l-activeLength+2;
+                        temp->child.insert(new SuffixNode(right));
+                        activeEdge=temp;
+                        if(previous== nullptr)  previous=temp;
+                        else{
+                            previous->SuffixLink=temp;
+                            previous=temp;
+                        }
                     }
+                    //activeLength, activeEdge, activeNode都需要更新, 交给下面的函数进行更新
+                    changeActive(++left, right);
                     --remainder;
                 }
             }
