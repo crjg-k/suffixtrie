@@ -20,7 +20,7 @@ class SuffixTrie {
         SuffixNode(int64_t l):l(l){}
         SuffixNode(int64_t l,int64_t r):l(l),r(r){}
     };
-    bool existPrefixContainSuffix(int64_t left, int64_t right){
+    bool existPrefixContainSuffix(int64_t right){
         SuffixNode *it= nullptr;
         if(activeEdge== nullptr) {
             for (const auto &item : activeNode->child)
@@ -40,16 +40,18 @@ class SuffixTrie {
             return 1;
         }else return 0;
     }
-    bool changeActive(int64_t left, int64_t right){
+    void changeActive(int64_t left, int64_t right){
         //rule 1:
         if(activeNode==root){
             if(activeLength>0)  --activeLength;
-            if(!activeLength){
-                activeEdge= nullptr;
+            activeEdge= nullptr;
+            if(activeLength)
                 for (const auto &item : root->child)
-                    if(str[item->l]==str[left]) activeEdge=item;
-            }
-            return activeEdge== nullptr?1:0;
+                    if(str[item->l]==str[left]) {
+                        activeEdge=item;
+                        break;
+                    }
+            return ;
         }
         //rule 3:
         if(activeNode->suffixLink!= nullptr){
@@ -59,7 +61,7 @@ class SuffixTrie {
                     activeEdge = item;
                     break;
                 }
-            return 1;
+            return ;
         }else{
             activeNode=root;
             activeLength=0;
@@ -77,7 +79,6 @@ class SuffixTrie {
                     activeEdge= nullptr;
                 }
             }
-            return 0;
         }
     }
 public:
@@ -103,39 +104,38 @@ public:
         remainder=activeLength=0;
         activeNode=root;
         activeEdge= nullptr;  //非空情况表示要对活动节点的哪个子节点进行分裂
-        while (right!=str.size()-1 and left!=str.size()-1){
-            bool status=0;
+        while (left<(int64_t)str.size()){
             ++remainder;
-            auto f=existPrefixContainSuffix(left, right);
-            cout<<"existPrefixContainSuffix:"<<f<<'\n';
-            if(!f){
+            if(!existPrefixContainSuffix(right)){
                 previous= nullptr;
                 while (remainder>0){
-                    cout<<"l: "<<left<<" r: "<<right<<'\n';
+                    cout<<"str: "<<str.substr(left, right-left+1)<<'\n';
+                    cout<<"activenode: "<<activeNode->l<<' '<<activeNode->r<<'\n';
+                    if(activeEdge!= nullptr)
+                        cout<<"activeedge: "<<activeEdge->l<<' '<<activeEdge->r<<'\n';
+                    else cout<<"activeedge is null\n";
+                    cout<<"activelen: "<<activeLength<<'\n';
                     check();
-                    if(!activeLength){
-                        //activeLength=0说明不需要分裂，直接给activeNode添加子节点
-                        activeNode->child.insert(new SuffixNode(left));
-                    }else{
+                    if(!activeLength)   //activeLength=0说明不需要分裂，直接给activeNode添加子节点
+                        activeNode->child.insert(new SuffixNode(right));
+                    else {  //下面是分裂节点的情况
                         auto temp=new SuffixNode(activeEdge->l,activeEdge->l+activeLength-1);
                         activeNode->child.erase(activeEdge);
                         activeNode->child.insert(temp);
                         temp->child.insert(activeEdge);
                         activeEdge->l=activeEdge->l+activeLength;
                         temp->child.insert(new SuffixNode(right));
+                        activeEdge=temp;
                         if(previous== nullptr)  previous=temp;
                         else{
                             previous->suffixLink=temp;
                             previous=temp;
                         }
                     }
-                    //activeLength, activeEdge, activeNode都需要更新, 交给下面的函数进行更新
-                    status=changeActive(++left, right);
-                    if(status) break;
+                    changeActive(++left,right);
                     --remainder;
                 }
             }
-            if(status)  continue;
             ++right;
         }
     }
