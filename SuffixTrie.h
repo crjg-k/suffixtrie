@@ -15,7 +15,7 @@ class SuffixTrie {
         int64_t l=0;
         int64_t r=-1;   //-1表示右端点未定
         set<SuffixNode *> child;    //使用set存子节点，crud时更高效
-        SuffixNode *SuffixLink= nullptr;
+        SuffixNode *suffixLink= nullptr;
         SuffixNode()=default;
         SuffixNode(int64_t l):l(l){}
         SuffixNode(int64_t l,int64_t r):l(l),r(r){}
@@ -40,25 +40,44 @@ class SuffixTrie {
             return 1;
         }else return 0;
     }
-    void changeActive(int64_t left, int64_t right){
+    bool changeActive(int64_t left, int64_t right){
         //rule 1:
         if(activeNode==root){
-            --activeLength;
-            if(!activeLength)
+            if(activeLength>0)  --activeLength;
+            if(!activeLength){
+                activeEdge= nullptr;
                 for (const auto &item : root->child)
-                    if(str[item->l]==str[left])
-                        activeEdge=item;
-                    //考虑需要将activeEdge置为null的情况
-            return ;
+                    if(str[item->l]==str[left]) activeEdge=item;
+            }
+            return activeEdge== nullptr?1:0;
         }
         //rule 3:
-        if(activeNode->SuffixLink!= nullptr){
-            activeNode=activeNode->SuffixLink;
-            return ;
+        if(activeNode->suffixLink!= nullptr){
+            activeNode=activeNode->suffixLink;
+            for (const auto &item : activeNode->child)
+                if (str[item->l] == str[right]) {
+                    activeEdge = item;
+                    break;
+                }
+            return 1;
         }else{
             activeNode=root;
-            //这里可能要写循环
-//            existPrefixContainSuffix(left, right);
+            activeLength=0;
+            activeEdge= nullptr;
+            for (const auto &item : activeNode->child)
+                if (str[item->l] == str[right]) {
+                    activeEdge = item;
+                    break;
+                }
+            while (activeEdge!= nullptr and str[activeEdge->l+activeLength]==str[activeEdge->r==-1?right:activeEdge->r]){
+                ++activeLength;
+                if(activeEdge->l+activeLength>(activeEdge->r==-1?right:activeEdge->r)){
+                    activeLength=0;
+                    activeNode=activeEdge;
+                    activeEdge= nullptr;
+                }
+            }
+            return 0;
         }
     }
 public:
@@ -85,32 +104,38 @@ public:
         activeNode=root;
         activeEdge= nullptr;  //非空情况表示要对活动节点的哪个子节点进行分裂
         while (right!=str.size()-1 and left!=str.size()-1){
+            bool status=0;
             ++remainder;
-            if(!existPrefixContainSuffix(left, right)){
+            auto f=existPrefixContainSuffix(left, right);
+            cout<<"existPrefixContainSuffix:"<<f<<'\n';
+            if(!f){
                 previous= nullptr;
                 while (remainder>0){
+                    cout<<"l: "<<left<<" r: "<<right<<'\n';
+                    check();
                     if(!activeLength){
                         //activeLength=0说明不需要分裂，直接给activeNode添加子节点
-                        activeNode->child.insert(new SuffixNode(right));
+                        activeNode->child.insert(new SuffixNode(left));
                     }else{
-                        auto temp=new SuffixNode(activeEdge->l,activeEdge->l-activeLength+1);
+                        auto temp=new SuffixNode(activeEdge->l,activeEdge->l+activeLength-1);
                         activeNode->child.erase(activeEdge);
                         activeNode->child.insert(temp);
                         temp->child.insert(activeEdge);
-                        activeEdge->l=activeEdge->l-activeLength+2;
+                        activeEdge->l=activeEdge->l+activeLength;
                         temp->child.insert(new SuffixNode(right));
-                        activeEdge=temp;
                         if(previous== nullptr)  previous=temp;
                         else{
-                            previous->SuffixLink=temp;
+                            previous->suffixLink=temp;
                             previous=temp;
                         }
                     }
                     //activeLength, activeEdge, activeNode都需要更新, 交给下面的函数进行更新
-                    changeActive(++left, right);
+                    status=changeActive(++left, right);
+                    if(status) break;
                     --remainder;
                 }
             }
+            if(status)  continue;
             ++right;
         }
     }
@@ -161,17 +186,18 @@ public:
         while (!q.empty()){
             auto now=q.front();
 //            cout<<222;
-            if(now!= nullptr)
-//                cout<<333;
+            if(now!= nullptr){
+                cout<<"now: "<<now->l<<' '<<now->r<<" its children:\n";
+                //                cout<<333;
                 for (const auto &item : now->child){
-                    if(item!= nullptr){
-//                        cout<<444;
-                        q.push(now);
-                        cout<<str.substr(now->l, now->r-now->l+1)<<' ';
-                    }
+                    cout<<item->l<<' '<<item->r<<'\n';
+                    if(item!= nullptr)
+                        q.push(item);
                 }
+            }
             q.pop();
         }
+        cout<<"====\n";
     }
 };
 

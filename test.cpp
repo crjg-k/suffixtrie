@@ -9,9 +9,9 @@ int main() {
     ios::sync_with_stdio(0);
     cin.tie(0);
     cout.tie(0);
-    string  str("fdgfdsca");
-    str[3]='\0';
-    cout<<str;
+    string  str("fdgfdsca5");
+    str.push_back('\1');
+    cout<<str.size();
 
     return 0;
 }
