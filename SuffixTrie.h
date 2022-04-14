@@ -5,139 +5,112 @@
 #ifndef _SUFFIXTRIE_H
 #define _SUFFIXTRIE_H
 #include <string>
-#include <set>
-#include <queue>
+#include <cstring>
+#include <map>
 #include <iostream>
 using namespace std;
 
-class SuffixTrie {
-    struct SuffixNode{
-        int64_t l=0;
-        int64_t r=-1;   //-1表示右端点未定
-        set<SuffixNode *> child;    //使用set存子节点，crud时更高效
-        SuffixNode *suffixLink= nullptr;
+class SuffixTrie2 {
+    char *text;
+    int64_t root, position = -1,
+            currentNode=0,
+            needSuffixLink,
+            remainder=0;
+    const static int64_t oo = INT64_MAX>>1;
+    int64_t active_node, active_length, active_edge;
+    struct SuffixNode {
+        /*
+        There is no need to create an "Edge" class.
+        Information about the edge is stored right in the node.
+        [start; end) int64_t rval specifies the edge,
+        by which the node is connected to its parent node.
+        */
+        map<char, int64_t> next;
         SuffixNode()=default;
-        SuffixNode(int64_t l):l(l){}
-        SuffixNode(int64_t l,int64_t r):l(l),r(r){}
+        SuffixNode(int64_t start, int64_t end):start(start),end(end) {}
+        int64_t edgeLength(int64_t position) {
+            return min(end, position + 1) - start;
+        }
+        int64_t start, end = oo, link=0;
     };
-    bool existPrefixContainSuffix(int64_t right){
-        SuffixNode *it= nullptr;
-        if(activeEdge== nullptr) {
-            for (const auto &item : activeNode->child)
-                if (str[item->l] == str[right]) {
-                    activeEdge = it = item;
-                    break;
-                }
-            if(it== nullptr)    return 0;
-        }
-        if(str[activeEdge->l+activeLength]==str[activeEdge->r==-1?right:activeEdge->r]){
-            ++activeLength;
-            if(activeEdge->l+activeLength>(activeEdge->r==-1?right:activeEdge->r)){
-                activeLength=0;
-                activeNode=activeEdge;
-                activeEdge= nullptr;
-            }
-            return 1;
-        }else return 0;
-    }
-    void changeActive(int64_t left, int64_t right){
-        //rule 1:
-        if(activeNode==root){
-            if(activeLength>0)  --activeLength;
-            activeEdge= nullptr;
-            if(activeLength)
-                for (const auto &item : root->child)
-                    if(str[item->l]==str[left]) {
-                        activeEdge=item;
-                        break;
-                    }
-            return ;
-        }
-        //rule 3:
-        if(activeNode->suffixLink!= nullptr){
-            activeNode=activeNode->suffixLink;
-            for (const auto &item : activeNode->child)
-                if (str[item->l] == str[right]) {
-                    activeEdge = item;
-                    break;
-                }
-            return ;
-        }else{
-            activeNode=root;
-            activeLength=0;
-            activeEdge= nullptr;
-            for (const auto &item : activeNode->child)
-                if (str[item->l] == str[right]) {
-                    activeEdge = item;
-                    break;
-                }
-            while (activeEdge!= nullptr and str[activeEdge->l+activeLength]==str[activeEdge->r==-1?right:activeEdge->r]){
-                ++activeLength;
-                if(activeEdge->l+activeLength>(activeEdge->r==-1?right:activeEdge->r)){
-                    activeLength=0;
-                    activeNode=activeEdge;
-                    activeEdge= nullptr;
-                }
-            }
-        }
-    }
+    SuffixNode *nodes= nullptr;
 public:
-    std::string str;
-    SuffixNode *root= nullptr;
-    int64_t remainder=0;
-    SuffixNode *activeNode=root;
-    SuffixNode *activeEdge= nullptr;
-    int64_t activeLength=0;
-    SuffixTrie(const std::string &str){ rebuild(str); }
-    ~SuffixTrie(){}
+    SuffixTrie2(int64_t length) {
+        nodes = new SuffixNode[2* length + 2];
+        text = new char[length];
+        memset(text, 0, sizeof(char)*length);
+        remainder=0;
+        root = active_node = newNode(-1, -1);
+    }
+
+    void addSuffixLink(int64_t node) {
+        if (needSuffixLink > 0)
+            nodes[needSuffixLink].link = node;
+        needSuffixLink = node;
+    }
+
+    char getActiveEdge() {
+        return text[active_edge];
+    }
+
+    bool walkDown(int64_t next) {
+        if (active_length >= nodes[next].edgeLength(position)) {
+            active_edge += nodes[next].edgeLength(position);
+            active_length -= nodes[next].edgeLength(position);
+            active_node = next;
+            return true;
+        }
+        return false;
+    }
+
+    int64_t newNode(int64_t start, int64_t end) {
+        nodes[++currentNode] = *new SuffixNode(start, end);
+        return currentNode;
+    }
+
+    void addChar(char c){
+        text[++position] = c;
+        needSuffixLink = -1;
+        remainder++;
+        while(remainder > 0) {
+            if (active_length == 0) active_edge = position;
+            if (nodes[active_node].next.find(getActiveEdge())==nodes[active_node].next.end()){
+                int64_t leaf = newNode(position, oo);
+                nodes[active_node].next[getActiveEdge()]=leaf;
+                addSuffixLink(active_node); //rule 2
+            } else {
+                int64_t next = nodes[active_node].next[getActiveEdge()];
+                if (walkDown(next)) continue;   //observation 2
+                //这里有问题nodes[next].start
+                if (text[nodes[next].start + active_length] == c) { //observation 1
+                    active_length++;
+                    addSuffixLink(active_node); // observation 3
+                    break;
+                }
+                int64_t split = newNode(nodes[next].start, nodes[next].start + active_length);
+                nodes[active_node].next[getActiveEdge()]=split;
+                int64_t leaf = newNode(position, oo);
+                nodes[split].next[c]=leaf;
+                nodes[next].start += active_length;
+                nodes[split].next[text[nodes[next].start]]=next;
+                addSuffixLink(split); //rule 2
+            }
+            remainder--;
+
+            if (active_node == root && active_length > 0) {  //rule 1
+                active_length--;
+                active_edge = position - remainder + 1;
+            } else
+                active_node = nodes[active_node].link > 0 ? nodes[active_node].link : root; //rule 3
+        }
+    }
     /**
      * 2022-04-03 11:59:22 GMT+8
      * @param s 要构建后缀树的字符串
      * @param last 结尾字符, 在对两个不同字符串查询公共部分时, 用来区分不同的字符串
      */
     void rebuild(const std::string &s, const char last='\0'){
-        str=s;
-        str.push_back(last);
-        root=new SuffixNode(-1);//标致为根节点，不存放任何字符
-        SuffixNode *previous= nullptr;
-        int64_t left=0,right=0;
-        remainder=activeLength=0;
-        activeNode=root;
-        activeEdge= nullptr;  //非空情况表示要对活动节点的哪个子节点进行分裂
-        while (left<(int64_t)str.size()){
-            ++remainder;
-            if(!existPrefixContainSuffix(right)){
-                previous= nullptr;
-                while (remainder>0){
-                    cout<<"str: "<<str.substr(left, right-left+1)<<'\n';
-                    cout<<"activenode: "<<activeNode->l<<' '<<activeNode->r<<'\n';
-                    if(activeEdge!= nullptr)
-                        cout<<"activeedge: "<<activeEdge->l<<' '<<activeEdge->r<<'\n';
-                    else cout<<"activeedge is null\n";
-                    cout<<"activelen: "<<activeLength<<'\n';
-                    check();
-                    if(!activeLength)   //activeLength=0说明不需要分裂，直接给activeNode添加子节点
-                        activeNode->child.insert(new SuffixNode(right));
-                    else {  //下面是分裂节点的情况
-                        auto temp=new SuffixNode(activeEdge->l,activeEdge->l+activeLength-1);
-                        activeNode->child.erase(activeEdge);
-                        activeNode->child.insert(temp);
-                        temp->child.insert(activeEdge);
-                        activeEdge->l=activeEdge->l+activeLength;
-                        temp->child.insert(new SuffixNode(right));
-                        activeEdge=temp;
-                        if(previous== nullptr)  previous=temp;
-                        else{
-                            previous->suffixLink=temp;
-                            previous=temp;
-                        }
-                    }
-                    changeActive(++left,right);
-                    --remainder;
-                }
-            }
-            ++right;
-        }
+
     }
     /**
      * 2022-03-31 18:07:04 GMT+8
@@ -153,16 +126,13 @@ public:
      * @return 子串t的出现次数
      */
     int64_t statisticSubstring(string &t){
-        int64_t times=0;
 
-        return times;
     }
     /**
      * 2022-03-31 18:07:25 GMT+8
      * @return 重复出现的最长子串
      */
     string findMostRepeatSubstring(){
-
 
     }
     /**
@@ -173,31 +143,62 @@ public:
      */
     static string findLongestCommon(string &q, string &r){
 
-
     }
     /**
      * 2022-04-02 09:52:53 GMT+8
      * 检查构造的树的结构
      */
-    void check(){
-        queue<SuffixNode *> q;
-        q.push(root);
-//        cout<<111;
-        while (!q.empty()){
-            auto now=q.front();
-//            cout<<222;
-            if(now!= nullptr){
-                cout<<"now: "<<now->l<<' '<<now->r<<" its children:\n";
-                //                cout<<333;
-                for (const auto &item : now->child){
-                    cout<<item->l<<' '<<item->r<<'\n';
-                    if(item!= nullptr)
-                        q.push(item);
-                }
-            }
-            q.pop();
+    string edgeString(int64_t node) {
+        string str;
+        for (int64_t i = nodes[node].start; i < min(position + 1, nodes[node].end); ++i){
+            str+=text[i];
         }
-        cout<<"====\n";
+        return str;
+    }
+    void printTree() {
+        cout<<"digraph {"<<'\n';
+        cout<<"\trankdir = LR;"<<'\n';
+        cout<<"\tedge [arrowsize=0.4,fontsize=10]"<<'\n';
+        cout<<"\tnode1 [label=\"\",style=filled,fillcolor=lightgrey,shape=circle,width=.1,height=.1];"<<'\n';
+        cout<<"//------leaves------"<<'\n';
+        printLeaves(root);
+        cout<<"//------internal nodes------"<<'\n';
+        printInternalNodes(root);
+        cout<<"//------edges------"<<'\n';
+        printEdges(root);
+        cout<<"//------suffix links------"<<'\n';
+        printSLinks(root);
+        cout<<"}"<<'\n';
+    }
+
+    void printLeaves(int64_t x) {
+        if (nodes[x].next.empty())
+            cout<<"\tnode"+ to_string(x)+" [label=\"\",shape=point]"<<'\n';
+        else {
+            for (auto child : nodes[x].next)
+                printLeaves(child.second);
+        }
+    }
+    void printInternalNodes(int64_t x) {
+        if (x != root && !nodes[x].next.empty())
+            cout<<"\tnode"+ to_string(x)+" [label=\"\",style=filled,fillcolor=lightgrey,shape=circle,width=.07,height=.07]"<<'\n';
+
+        for (auto child : nodes[x].next)
+            printInternalNodes(child.second);
+    }
+
+    void printEdges(int64_t x) {
+        for (auto child : nodes[x].next) {
+            cout<<"\tnode"+ to_string(x)+" -> node"+to_string(child.second)+" [label=\""+edgeString(child.second)+"\",weight=3]"<<'\n';
+            printEdges(child.second);
+        }
+    }
+
+    void printSLinks(int64_t x) {
+        if (nodes[x].link > 0)
+            cout<<"\tnode"+to_string(x)+" -> node"+ to_string(nodes[x].link)+" [label=\"\",weight=1,style=dotted]"<<'\n';
+        for (auto child : nodes[x].next)
+            printSLinks(child.second);
     }
 };
 
