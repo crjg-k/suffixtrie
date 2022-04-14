@@ -10,32 +10,32 @@
 #include <iostream>
 using namespace std;
 
-class SuffixTrie2 {
+class SuffixTrie {
     char *text;
     int64_t root, position = -1,
             currentNode=0,
-            needSuffixLink,
-            remainder=0;
-    const static int64_t oo = INT64_MAX>>1;
-    int64_t active_node, active_length, active_edge;
+            needSuffixLink{},
+            remainder=0,
+            active_node, active_length{}, active_edge{};
+    const static int64_t presetMax = INT64_MAX;
     struct SuffixNode {
         /*
-        There is no need to create an "Edge" class.
-        Information about the edge is stored right in the node.
-        [start; end) int64_t rval specifies the edge,
-        by which the node is connected to its parent node.
+            There is no need to create an "Edge" class.
+            Information about the edge is stored right in the node.
+            [start; end) int64_t interval specifies the edge,
+            by which the node is connected to its parent node.
         */
         map<char, int64_t> next;
         SuffixNode()=default;
         SuffixNode(int64_t start, int64_t end):start(start),end(end) {}
-        int64_t edgeLength(int64_t position) {
+        int64_t edgeLength(int64_t position) const {
             return min(end, position + 1) - start;
         }
-        int64_t start, end = oo, link=0;
+        int64_t start{}, end = presetMax, link=0;
     };
     SuffixNode *nodes= nullptr;
 public:
-    SuffixTrie2(int64_t length) {
+    explicit SuffixTrie(int64_t length) {
         nodes = new SuffixNode[2* length + 2];
         text = new char[length];
         memset(text, 0, sizeof(char)*length);
@@ -75,13 +75,12 @@ public:
         while(remainder > 0) {
             if (active_length == 0) active_edge = position;
             if (nodes[active_node].next.find(getActiveEdge())==nodes[active_node].next.end()){
-                int64_t leaf = newNode(position, oo);
+                int64_t leaf = newNode(position, presetMax);
                 nodes[active_node].next[getActiveEdge()]=leaf;
                 addSuffixLink(active_node); //rule 2
             } else {
                 int64_t next = nodes[active_node].next[getActiveEdge()];
                 if (walkDown(next)) continue;   //observation 2
-                //这里有问题nodes[next].start
                 if (text[nodes[next].start + active_length] == c) { //observation 1
                     active_length++;
                     addSuffixLink(active_node); // observation 3
@@ -89,7 +88,7 @@ public:
                 }
                 int64_t split = newNode(nodes[next].start, nodes[next].start + active_length);
                 nodes[active_node].next[getActiveEdge()]=split;
-                int64_t leaf = newNode(position, oo);
+                int64_t leaf = newNode(position, presetMax);
                 nodes[split].next[c]=leaf;
                 nodes[next].start += active_length;
                 nodes[split].next[text[nodes[next].start]]=next;
@@ -100,8 +99,7 @@ public:
             if (active_node == root && active_length > 0) {  //rule 1
                 active_length--;
                 active_edge = position - remainder + 1;
-            } else
-                active_node = nodes[active_node].link > 0 ? nodes[active_node].link : root; //rule 3
+            } else active_node = nodes[active_node].link > 0 ? nodes[active_node].link : root; //rule 3
         }
     }
     /**
@@ -144,10 +142,7 @@ public:
     static string findLongestCommon(string &q, string &r){
 
     }
-    /**
-     * 2022-04-02 09:52:53 GMT+8
-     * 检查构造的树的结构
-     */
+
     string edgeString(int64_t node) {
         string str;
         for (int64_t i = nodes[node].start; i < min(position + 1, nodes[node].end); ++i){
@@ -155,11 +150,12 @@ public:
         }
         return str;
     }
+    /**
+     * 2022-04-02 09:52:53 GMT+8
+     * 打印构造的树的结构
+     */
     void printTree() {
         cout<<"digraph {"<<'\n';
-        cout<<"\trankdir = LR;"<<'\n';
-        cout<<"\tedge [arrowsize=0.4,fontsize=10]"<<'\n';
-        cout<<"\tnode1 [label=\"\",style=filled,fillcolor=lightgrey,shape=circle,width=.1,height=.1];"<<'\n';
         cout<<"//------leaves------"<<'\n';
         printLeaves(root);
         cout<<"//------internal nodes------"<<'\n';
@@ -174,15 +170,12 @@ public:
     void printLeaves(int64_t x) {
         if (nodes[x].next.empty())
             cout<<"\tnode"+ to_string(x)+" [label=\"\",shape=point]"<<'\n';
-        else {
-            for (auto child : nodes[x].next)
-                printLeaves(child.second);
-        }
+        else for (auto child : nodes[x].next)
+            printLeaves(child.second);
     }
     void printInternalNodes(int64_t x) {
         if (x != root && !nodes[x].next.empty())
             cout<<"\tnode"+ to_string(x)+" [label=\"\",style=filled,fillcolor=lightgrey,shape=circle,width=.07,height=.07]"<<'\n';
-
         for (auto child : nodes[x].next)
             printInternalNodes(child.second);
     }
