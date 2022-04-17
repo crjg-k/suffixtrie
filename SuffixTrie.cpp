@@ -45,7 +45,7 @@ void SuffixTrie::printSLinks(int64_t x) {
         printSLinks(child.second);
 }
 
-string SuffixTrie::edgeString(int64_t node) {
+string SuffixTrie::edgeString(int64_t node) const {
     string str;
     for (int64_t i = nodes[node].start; i < min(position + 1, nodes[node].end); ++i)
         str+=text[i];
@@ -58,7 +58,7 @@ void SuffixTrie::addSuffixLink(int64_t node) {
     needSuffixLink = node;
 }
 
-char SuffixTrie::getActiveEdge() {
+char SuffixTrie::getActiveEdge() const {
     return text[active_edge];
 }
 
@@ -91,10 +91,10 @@ void SuffixTrie::addChar(char c){
             addSuffixLink(active_node); //rule 2
         } else {
             int64_t next = nodes[active_node].next[getActiveEdge()];
-            if (walkDown(next)) continue;   //observation 2
-            if (text[nodes[next].start + active_length] == c) { //observation 1
+            if (walkDown(next)) continue;
+            if (text[nodes[next].start + active_length] == c) {
                 active_length++;
-                addSuffixLink(active_node); // observation 3
+                addSuffixLink(active_node);
                 break;
             }
             //节点分裂
@@ -115,22 +115,11 @@ void SuffixTrie::addChar(char c){
     }
 }
 
-void SuffixTrie::rebuild(std::string &s, const string& final){
-    s.append(final);
-    nodes = new SuffixNode[(s.size()<<1)+2];
-    text = new char[s.size()];
-    remainder=0;
-    root = active_node = newNode(-1, -1);
-    for (char ch : s)   addChar(ch);
-}
-
 void SuffixTrie::dfs(int64_t now, vector<int64_t> *v) const {
     if(nodes[now].next.empty())
         v->push_back(nodes[now].suffixIndex);
-    else {
-        for (const auto &item : nodes[now].next)
+    else for (const auto &item : nodes[now].next)
             dfs(item.second,v);
-    }
 }
 
 vector<int64_t>* SuffixTrie::findSubstring(const std::string &t) const{
@@ -161,4 +150,27 @@ vector<int64_t>* SuffixTrie::findSubstring(const std::string &t) const{
 
 int64_t SuffixTrie::statisticSubstring(const string &t) const{
     return findSubstring(t)->size();
+}
+
+string SuffixTrie::findMostRepeatSubstring(int64_t now=0,int64_t cnt=0,int64_t flag=0){
+    string str;
+    static int64_t tail,maxn=INT64_MIN;
+    for (const auto &item : nodes[now].next)
+        if(nodes[item.second].end!=presetMax){
+            cnt+=nodes[item.second].end-nodes[item.second].start;
+            findMostRepeatSubstring(item.second,cnt,1);
+            cnt-=nodes[item.second].end-nodes[item.second].start;
+        }
+        else if(cnt>maxn){
+            maxn=cnt;
+            tail=nodes[now].end;
+        }
+    if(!flag)
+        for(int64_t i=0;i<maxn;++i)
+            str+=text[i+tail-maxn];
+    return str;
+}
+
+int64_t SuffixTrie::getSize(){
+    return size;
 }
