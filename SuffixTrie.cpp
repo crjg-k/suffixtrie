@@ -4,51 +4,65 @@
 
 #include "SuffixTrie.h"
 
-void SuffixTrie::showInfo() {
-    cout<<"SuffixTrie {"<<'\n';
-    cout<<"//------leaves------"<<'\n';
-    printLeaves(root);
-    cout<<"//------internal nodes------"<<'\n';
-    printInternalNodes(root);
-    cout<<"//------edges------"<<'\n';
-    printEdges(root);
-    cout<<"//------suffix links------"<<'\n';
-    printSLinks(root);
-    cout<<"}"<<'\n';
+#include <fstream>
+
+void SuffixTrie::displaySuffixTrie() {
+    fstream f("st.txt", ios::out);
+    f<<"digraph {"<<'\n';
+    f<<"\trankdir = LR;"<<'\n';
+    f<<"\tedge [arrowsize=0.4,fontsize=10]"<<'\n';
+    f<<"\tnode0 [label=\"\",style=filled,fillcolor=lightgrey,"
+          "shape=circle,width=.1,height=.1];"<<'\n';
+    f<<"//------leaves------"<<'\n';
+    printLeaves(root,f);
+    f<<"//------internal nodes------"<<'\n';
+    printInternalNodes(root,f);
+    f<<"//------edges------"<<'\n';
+    printEdges(root,f);
+    f<<"//------suffix links------"<<'\n';
+    printSLinks(root,f);
+    f<<"}"<<'\n';
+    f.flush();f.close();
+    system("dot -Tsvg st.txt > output.svg");
+    system("output.svg");
 }
 
-void SuffixTrie::printLeaves(int64_t x) {
+void SuffixTrie::printLeaves(int64_t x, fstream &f) {
     if (nodes[x].next.empty())
-        cout<<"\tnode"+ to_string(x)+" [suffixIndex="+ to_string(nodes[x].suffixIndex)+"]"<<'\n';
+        f<<"\tnode"+ to_string(x)+" [label=\""+ to_string(nodes[x].suffixIndex)+"\",shape=point]\n";
     else for (auto child : nodes[x].next)
-            printLeaves(child.second);
+            printLeaves(child.second, f);
 }
 
-void SuffixTrie::printInternalNodes(int64_t x) {
+void SuffixTrie::printInternalNodes(int64_t x, fstream &f) {
     if (x != root && !nodes[x].next.empty())
-        cout<<"\tnode"+ to_string(x)+" [label=\"\"]"<<'\n';
+        f<<"\tnode"+ to_string(x)+" [label=\"\",style=filled,fillcolor=lightgrey,shape=circle,width=.07,height=.07]\n";
     for (auto child : nodes[x].next)
-        printInternalNodes(child.second);
+        printInternalNodes(child.second, f);
 }
 
-void SuffixTrie::printEdges(int64_t x) {
+void SuffixTrie::printEdges(int64_t x, fstream &f) {
     for (auto child : nodes[x].next) {
-        cout<<"\tnode"+ to_string(x)+" -> node"+to_string(child.second)+" [label=\""+edgeString(child.second)+"\"]"<<'\n';
-        printEdges(child.second);
+        f<<"\tnode"+ to_string(x)+" -> node"+to_string(child.second)+" [label=\""+edgeString(child.second)+"\"]"<<'\n';
+        printEdges(child.second, f);
     }
 }
 
-void SuffixTrie::printSLinks(int64_t x) {
+void SuffixTrie::printSLinks(int64_t x, fstream &f) {
     if (nodes[x].link > 0)
-        cout<<"\tnode"+to_string(x)+" -> node"+ to_string(nodes[x].link)+" [label=\"\"]"<<'\n';
+        f<<"\tnode"+to_string(x)+" -> node"+ to_string(nodes[x].link)+" [label=\"\",weight=1,style=dotted]"<<'\n';
     for (auto child : nodes[x].next)
-        printSLinks(child.second);
+        printSLinks(child.second, f);
 }
 
 string SuffixTrie::edgeString(int64_t node) const {
     string str;
     for (int64_t i = nodes[node].start; i < min(position + 1, nodes[node].end); ++i)
-        str+=text[i];
+        if(text[i]<32){
+            str+=("\\\\"+ to_string(text[i]));
+            break;
+        }
+        else str+=text[i];
     return str;
 }
 
@@ -67,9 +81,9 @@ bool SuffixTrie::walkDown(int64_t next) {
         active_edge += nodes[next].edgeLength(position);
         active_length -= nodes[next].edgeLength(position);
         active_node = next;
-        return true;
+        return 1;
     }
-    return false;
+    return 0;
 }
 
 int64_t SuffixTrie::newNode(int64_t start, int64_t end, int64_t suffixIndex) {
@@ -85,14 +99,14 @@ void SuffixTrie::addChar(char c){
         if (active_length == 0)
             active_edge = position;
         if (nodes[active_node].next.find(getActiveEdge())==nodes[active_node].next.end()){
-            //直接新增节点
+            //说明当前节点的字节中没有以字符c开头的边, 直接新增节点
             int64_t leaf = newNode(position, presetMax, position-remainder+1);
             nodes[active_node].next[getActiveEdge()]=leaf;
             addSuffixLink(active_node); //rule 2
         } else {
             int64_t next = nodes[active_node].next[getActiveEdge()];
             if (walkDown(next)) continue;
-            if (text[nodes[next].start + active_length] == c) {
+            if (text[nodes[next].start + active_length] == c) {   //被隐式包含了, 什么都不做
                 active_length++;
                 addSuffixLink(active_node);
                 break;
@@ -149,10 +163,11 @@ vector<int64_t>* SuffixTrie::findSubstring(const std::string &t) const{
 }
 
 int64_t SuffixTrie::statisticSubstring(const string &t) const{
-    return findSubstring(t)->size();
+    auto res=findSubstring(t);
+    return res== nullptr?0:res->size();
 }
 
-string SuffixTrie::findMostRepeatSubstring(int64_t now=0,int64_t cnt=0,int64_t flag=0){
+string SuffixTrie::findMostRepeatSubstring(int64_t now,int64_t cnt,int64_t flag){
     string str;
     static int64_t tail,maxn=INT64_MIN;
     for (const auto &item : nodes[now].next)
@@ -171,6 +186,18 @@ string SuffixTrie::findMostRepeatSubstring(int64_t now=0,int64_t cnt=0,int64_t f
     return str;
 }
 
-int64_t SuffixTrie::getSize(){
+int64_t SuffixTrie::getSize() const{
     return size;
+}
+
+void SuffixTrie::outputNodeInfo() const{
+    for(int i=0;i<currentNode;++i){
+        SuffixTrie::SuffixNode &node = nodes[i];
+        cout<<node.start<<' '<<(node.end==INT64_MAX?-1:node.end)<<' ';
+        cout<<node.suffixIndex<<'\n';
+    }
+}
+
+string SuffixTrie::findLongestCommon(int64_t now,int64_t cnt,int64_t flag){
+
 }
