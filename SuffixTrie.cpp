@@ -5,14 +5,22 @@
 #include "SuffixTrie.h"
 
 #include <fstream>
+#include <iostream>
+
+#define min std::min
+#define fstream std::fstream
+#define cout std::cout
+#define string std::string
+#define to_string std::to_string
+#define vector std::vector
+#define copy std::copy
 
 void SuffixTrie::displaySuffixTrie() {
-    fstream f("st.txt", ios::out);
+    fstream f("st.txt", std::ios::out);
     f<<"digraph {"<<'\n';
     f<<"\trankdir = LR;"<<'\n';
     f<<"\tedge [arrowsize=0.4,fontsize=10]"<<'\n';
-    f<<"\tnode0 [label=\"\",style=filled,fillcolor=lightgrey,"
-          "shape=circle,width=.1,height=.1];"<<'\n';
+    f<<"\tnode0 [label=\"\",style=filled,fillcolor=lightgrey,shape=circle,width=.1,height=.1];"<<'\n';
     f<<"//------leaves------"<<'\n';
     printLeaves(root,f);
     f<<"//------internal nodes------"<<'\n';
@@ -66,14 +74,16 @@ string SuffixTrie::edgeString(int64_t node) const {
     return str;
 }
 
-void SuffixTrie::addSuffixLink(int64_t node) {
-    if (needSuffixLink > 0)
-        nodes[needSuffixLink].link = node;
-    needSuffixLink = node;
+void SuffixTrie::outputNodeInfo() const{
+    for(int i=0;i<currentNode;++i){
+        SuffixTrie::SuffixNode &node = nodes[i];
+        cout<<node.start<<' '<<(node.end==INT64_MAX?-1:node.end)<<' '<<node.suffixIndex<<'\n';
+    }
 }
 
-char SuffixTrie::getActiveEdge() const {
-    return text[active_edge];
+void SuffixTrie::addSuffixLink(int64_t node) {
+    if (needSuffixLink > 0) nodes[needSuffixLink].link = node;
+    needSuffixLink = node;
 }
 
 bool SuffixTrie::walkDown(int64_t next) {
@@ -93,18 +103,16 @@ int64_t SuffixTrie::newNode(int64_t start, int64_t end, int64_t suffixIndex) {
 
 void SuffixTrie::addChar(char c){
     text[++position] = c;
-    needSuffixLink = -1;
-    remainder++;
+    needSuffixLink = -1;++remainder;
     while(remainder > 0) {
-        if (active_length == 0)
-            active_edge = position;
-        if (nodes[active_node].next.find(getActiveEdge())==nodes[active_node].next.end()){
+        if (active_length == 0) active_edge = position;
+        if (nodes[active_node].next.find(text[active_edge])==nodes[active_node].next.end()){
             //说明当前节点的字节中没有以字符c开头的边, 直接新增节点
             int64_t leaf = newNode(position, presetMax, position-remainder+1);
-            nodes[active_node].next[getActiveEdge()]=leaf;
+            nodes[active_node].next[text[active_edge]]=leaf;
             addSuffixLink(active_node); //rule 2
         } else {
-            int64_t next = nodes[active_node].next[getActiveEdge()];
+            int64_t next = nodes[active_node].next[text[active_edge]];
             if (walkDown(next)) continue;
             if (text[nodes[next].start + active_length] == c) {   //被隐式包含了, 什么都不做
                 active_length++;
@@ -113,36 +121,35 @@ void SuffixTrie::addChar(char c){
             }
             //节点分裂
             int64_t split = newNode(nodes[next].start, nodes[next].start + active_length);
-            nodes[active_node].next[getActiveEdge()]=split;
+            nodes[active_node].next[text[active_edge]]=split;
             int64_t leaf = newNode(position, presetMax, position-remainder+1);
             nodes[split].next[c]=leaf;
             nodes[next].start += active_length;
             nodes[split].next[text[nodes[next].start]]=next;
             addSuffixLink(split); //rule 2
         }
-        remainder--;
+        --remainder;
 
-        if (active_node == root && active_length > 0) {  //rule 1
+        if (active_node == root and active_length > 0) {  //rule 1
             active_length--;
             active_edge = position - remainder + 1;
         } else active_node = nodes[active_node].link > 0 ? nodes[active_node].link : root; //rule 3
     }
 }
 
-void SuffixTrie::dfs(int64_t now, vector<int64_t> *v) const {
+void SuffixTrie::dfs1(int64_t now, vector<int64_t> *v) const {
     if(nodes[now].next.empty())
         v->push_back(nodes[now].suffixIndex);
     else for (const auto &item : nodes[now].next)
-            dfs(item.second,v);
+            dfs1(item.second,v);
 }
 
-vector<int64_t>* SuffixTrie::findSubstring(const std::string &t) const{
-    int64_t step=0, now=root, cnt=0;bool flag=0;
+vector<int64_t>* SuffixTrie::findSubstring(const string &t) const{
+    int64_t step=0, now=root, cnt=0;bool flag;
     while (1){
-        if(step==t.size()){
-            //从这里开始类dfs搜索
+        if(step==t.size()){ //从这里开始类dfs搜索
             auto* v=new vector<int64_t>;
-            dfs(now,v);
+            dfs1(now,v);
             return v;
         }
         flag=1;
@@ -168,8 +175,8 @@ int64_t SuffixTrie::statisticSubstring(const string &t) const{
 }
 
 string SuffixTrie::findMostRepeatSubstring(int64_t now,int64_t cnt,int64_t flag){
-    string str;
-    static int64_t tail,maxn=INT64_MIN;
+    static string str;
+    static int64_t tail, maxn=INT64_MIN;
     for (const auto &item : nodes[now].next)
         if(nodes[item.second].end!=presetMax){
             cnt+=nodes[item.second].end-nodes[item.second].start;
@@ -186,18 +193,57 @@ string SuffixTrie::findMostRepeatSubstring(int64_t now,int64_t cnt,int64_t flag)
     return str;
 }
 
+int64_t SuffixTrie::dfs2(SuffixTrie &st,int64_t now, int64_t cnt, int64_t first, int64_t &maxn, int64_t &tail) {
+    bool is1=0,is2=0,is3=0;
+    if(st.nodes[now].next.empty()){
+        if(st.nodes[now].start>first)   return 2;
+        else return 1;
+    }
+    for (const auto &item : st.nodes[now].next){
+        auto res=dfs2(st, item.second, cnt+st.nodes[item.second].end-st.nodes[item.second].start, first, maxn, tail);
+        if(res==1)  is1=1;
+        if(res==2)  is2=1;
+        if(res==3 or (is1 and is2)) is3=1;
+        if(is3 and cnt>maxn){
+            maxn=cnt;
+            tail=st.nodes[now].end;
+        }
+    }
+    if(is3) return 3;
+    if(is2) return 2;
+    return 1;
+}
+
+string SuffixTrie::findLongestCommon(string &q, string &r){
+    int64_t maxn=INT64_MIN, tail;
+    r+='\2';
+    SuffixTrie st(q);
+    auto tempNodes=new SuffixNode[((q.size()+1+r.size())<<1)+2];    //节点个数不会超过2n+2个
+    copy(st.nodes, st.nodes+st.currentNode, tempNodes);
+    st.nodes=tempNodes;
+    auto tempText=new char[q.size()+1+r.size()];
+    copy(st.text, st.text+st.size+1, tempText);
+    st.text=tempText;
+    st.size=q.size()+1+r.size();
+    st.root=st.remainder=st.active_node=st.active_length=st.active_edge=0;
+    for (char ch : r)   st.addChar(ch);
+    dfs2(st,0,0,q.size(),maxn,tail);
+    string temp;
+    for(int64_t i=0;i<maxn;++i)
+        temp+=st.text[i+tail-maxn];
+    delete []tempNodes;
+    delete []tempText;
+    return temp;
+}
+
 int64_t SuffixTrie::getSize() const{
     return size;
 }
 
-void SuffixTrie::outputNodeInfo() const{
-    for(int i=0;i<currentNode;++i){
-        SuffixTrie::SuffixNode &node = nodes[i];
-        cout<<node.start<<' '<<(node.end==INT64_MAX?-1:node.end)<<' ';
-        cout<<node.suffixIndex<<'\n';
-    }
-}
-
-string SuffixTrie::findLongestCommon(int64_t now,int64_t cnt,int64_t flag){
-
-}
+#undef min
+#undef fstream
+#undef cout
+#undef string
+#undef to_string
+#undef vector
+#undef copy
