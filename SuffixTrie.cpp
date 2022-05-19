@@ -154,17 +154,16 @@ vector<int64_t>* SuffixTrie::findSubstring(const string &t) const{
         }
         flag=1;
         for (const auto &item : nodes[now].next){
-            if(item.first==t[step]){
+            while (item.first==t[step]){
                 flag=0;
-                ++cnt;
+                ++cnt;++step;
                 if(step==t.size()-1 or cnt>=nodes[item.second].end-nodes[item.second].start) {
                     now=item.second;
-                    cnt=0;
+                    cnt=0;break;
                 }
-                break;
             }
+            if(!flag)   break;
         }
-        ++step;
         if(flag)    return nullptr;
     }
 }
