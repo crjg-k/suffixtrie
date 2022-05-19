@@ -145,7 +145,7 @@ void SuffixTrie::dfs1(int64_t now, vector<int64_t> *v) const {
 }
 
 vector<int64_t>* SuffixTrie::findSubstring(const string &t) const{
-    int64_t step=0, now=root, cnt=0;bool flag;
+    int64_t step=0, now=root, cnt=0, start, next, end;bool flag;
     while (1){
         if(step==t.size()){ //从这里开始类dfs搜索
             auto* v=new vector<int64_t>;
@@ -153,16 +153,19 @@ vector<int64_t>* SuffixTrie::findSubstring(const string &t) const{
             return v;
         }
         flag=1;
-        for (const auto &item : nodes[now].next){
-            while (item.first==t[step]){
+        for (const auto &item : nodes[now].next)
+            if(item.first==t[step]){
                 flag=0;
-                ++cnt;++step;
-                if(step==t.size()-1 or cnt>=nodes[item.second].end-nodes[item.second].start) {
-                    now=item.second;
-                    cnt=0;break;
-                }
+                start=nodes[next=item.second].start;
+                end=nodes[item.second].end;
+                break;
             }
-            if(!flag)   break;
+        while (!flag and text[start+cnt]==t[step]){
+            ++cnt;++step;
+            if(step==t.size()-1 or cnt>=end-start) {
+                now=next;
+                cnt=0;break;
+            }
         }
         if(flag)    return nullptr;
     }
