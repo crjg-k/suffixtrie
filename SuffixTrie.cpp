@@ -116,7 +116,6 @@ void SuffixTrie::addChar(char c){
             if (walkDown(next)) continue;
             if (text[nodes[next].start + active_length] == c) {   //被隐式包含了, 什么都不做
                 active_length++;
-                addSuffixLink(active_node);
                 break;
             }
             //节点分裂
@@ -137,9 +136,13 @@ void SuffixTrie::addChar(char c){
     }
 }
 
+void SuffixTrie::rebuild(string s){
+    SuffixTrie st(std::move(s));
+    *this=st;
+}
+
 void SuffixTrie::dfs1(int64_t now, vector<int64_t> *v) const {
-    if(nodes[now].next.empty())
-        v->push_back(nodes[now].suffixIndex);
+    if(nodes[now].next.empty()) v->emplace_back(nodes[now].suffixIndex);
     else for (const auto &item : nodes[now].next)
             dfs1(item.second,v);
 }
@@ -162,7 +165,7 @@ vector<int64_t>* SuffixTrie::findSubstring(const string &t) const{
             }
         while (!flag and text[start+cnt]==t[step]){
             ++cnt;++step;
-            if(step==t.size()-1 or cnt>=end-start) {
+            if(step==t.size() or cnt>=end-start) {
                 now=next;
                 cnt=0;break;
             }
@@ -177,7 +180,7 @@ int64_t SuffixTrie::statisticSubstring(const string &t) const{
 }
 
 string SuffixTrie::findMostRepeatSubstring(int64_t now,int64_t cnt,int64_t flag){
-    static string str;
+    static string str;str.clear();
     static int64_t tail, maxn=INT64_MIN;
     for (const auto &item : nodes[now].next)
         if(nodes[item.second].end!=presetMax){
@@ -189,9 +192,11 @@ string SuffixTrie::findMostRepeatSubstring(int64_t now,int64_t cnt,int64_t flag)
             maxn=cnt;
             tail=nodes[now].end;
         }
-    if(!flag)
+    if(!flag){
         for(int64_t i=0;i<maxn;++i)
             str+=text[i+tail-maxn];
+        maxn=INT64_MIN;
+    }
     return str;
 }
 
@@ -233,14 +238,11 @@ string SuffixTrie::findLongestCommon(string &q, string &r){
     string temp;
     for(int64_t i=0;i<maxn;++i)
         temp+=st.text[i+tail-maxn];
-    delete []tempNodes;
-    delete []tempText;
+    delete []tempNodes;delete []tempText;
     return temp;
 }
 
-int64_t SuffixTrie::getSize() const{
-    return size;
-}
+int64_t SuffixTrie::getSize() const{ return size; }
 
 #undef min
 #undef fstream

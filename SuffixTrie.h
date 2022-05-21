@@ -6,6 +6,7 @@
 #define _SUFFIXTRIE_H
 
 #include <map>
+#include <utility>
 #include <vector>
 
 #define map std::map
@@ -31,7 +32,7 @@ class SuffixTrie {
             return min(end, pos + 1) - start;
         }
         int64_t start{}, end = presetMax,
-                link=0, //该节点是否有后缀链接
+                link=0, //标识该节点是否有后缀链接
                 suffixIndex{};  //该叶子节点所代表的后缀是从原串中哪个位置开始的, 从0开始
     };
     SuffixNode *nodes= nullptr;
@@ -65,6 +66,11 @@ public:
         root = active_node = newNode(-1, -1);
         for (char ch : s)   addChar(ch);
     }
+    /**
+     * 重新构造后缀树
+     * @param s 要构建后缀树的字符串
+     */
+    void rebuild(string s);
     /**
      * 2022-03-31 18:07:04 GMT+8
      * @param t 查找的子串

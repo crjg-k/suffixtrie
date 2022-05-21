@@ -1,0 +1,39 @@
+38
+1 abcabcbbdac
+2 bca
+2 bc
+2 e
+3 b
+3 bc
+3 a
+4
+5 xabxa babxba
+1 cabccabccabc
+2 abc
+2 ca
+2 bcc
+2 bc
+2 d
+2 5xf
+2 abcc
+3 bc
+3 bcc
+3 cabc
+3 cabccabc
+4
+5 banana anaconda
+1 a[b/*dr5-/*fac6zc+[sa]cc
+2 [
+2 0\
+3 *
+3 /*
+3 c
+4
+5 <{}[([{}])]>([]) [{}][{}]()()<>
+1 aaaaa
+2 a
+2 aa
+2 aaa
+2 aaaa
+2 aaaaa
+4
