@@ -6,7 +6,6 @@
 #define _SUFFIXTRIE_H
 
 #include <map>
-#include <utility>
 #include <vector>
 
 #define map std::map
