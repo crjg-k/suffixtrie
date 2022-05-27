@@ -6,7 +6,6 @@
 #define _SUFFIXTRIE_H
 
 #include <map>
-#include <utility>
 #include <vector>
 
 #define map std::map
@@ -17,7 +16,7 @@
 
 class SuffixTrie {
     char *text{};
-    int64_t root{}, size{}, position = -1,
+    int64_t root{}, size{}, position = -1,  //记录当前行进到text的哪个位置了
             currentNode=0,  //当前到数组中哪个位置了, 后面插入新的节点就在该位置插入
             needSuffixLink{},
             remainder=0,    //当前剩余隐式包含的后缀的数量
@@ -25,7 +24,7 @@ class SuffixTrie {
     const static int64_t presetMax = INT64_MAX;
     // 不需要创建 Edge 类. 有关边的信息存储在节点中. [start, end) int64_t 的区间指定边.
     struct SuffixNode {
-        map<char, int64_t> next;
+        map<char, int64_t> next;    //子节点们
         SuffixNode()=default;
         SuffixNode(int64_t start, int64_t end, int64_t suffixIndex):start(start),end(end),suffixIndex(suffixIndex) {}
         int64_t edgeLength(int64_t pos) const {
@@ -33,9 +32,9 @@ class SuffixTrie {
         }
         int64_t start{}, end = presetMax,
                 link=0, //标识该节点是否有后缀链接
-                suffixIndex{};  //该叶子节点所代表的后缀是从原串中哪个位置开始的, 从0开始
+                suffixIndex{};  //该叶子节点所代表的后缀是从原串中哪个位置开始的, 这里索引从0开始
     };
-    SuffixNode *nodes= nullptr;
+    SuffixNode *nodes= nullptr; //节点存储在数组中, 通过索引值互相连接, 而不是使用指针互相连接
 
     void printLeaves(int64_t x, fstream &f);
     void printInternalNodes(int64_t x, fstream &f);
@@ -68,6 +67,7 @@ public:
     }
     /**
      * 重新构造后缀树
+     * 2022-05-19 17:19:05 GMT+8
      * @param s 要构建后缀树的字符串
      */
     void rebuild(string s);

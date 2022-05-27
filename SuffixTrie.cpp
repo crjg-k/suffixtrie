@@ -86,7 +86,7 @@ void SuffixTrie::addSuffixLink(int64_t node) {
     needSuffixLink = node;
 }
 
-bool SuffixTrie::walkDown(int64_t next) {
+bool SuffixTrie::walkDown(int64_t next) {   //判断当前节点所代表的子串是否被"走完"然后active_node"行进到"下一个节点
     if (active_length >= nodes[next].edgeLength(position)) {
         active_edge += nodes[next].edgeLength(position);
         active_length -= nodes[next].edgeLength(position);
@@ -110,7 +110,7 @@ void SuffixTrie::addChar(char c){
             //说明当前节点的字节中没有以字符c开头的边, 直接新增节点
             int64_t leaf = newNode(position, presetMax, position-remainder+1);
             nodes[active_node].next[text[active_edge]]=leaf;
-            addSuffixLink(active_node); //rule 2
+            addSuffixLink(active_node); //rule 3
         } else {
             int64_t next = nodes[active_node].next[text[active_edge]];
             if (walkDown(next)) continue;
@@ -125,14 +125,14 @@ void SuffixTrie::addChar(char c){
             nodes[split].next[c]=leaf;
             nodes[next].start += active_length;
             nodes[split].next[text[nodes[next].start]]=next;
-            addSuffixLink(split); //rule 2
+            addSuffixLink(split); //rule 3
         }
         --remainder;
 
         if (active_node == root and active_length > 0) {  //rule 1
             active_length--;
             active_edge = position - remainder + 1;
-        } else active_node = nodes[active_node].link > 0 ? nodes[active_node].link : root; //rule 3
+        } else active_node = nodes[active_node].link > 0 ? nodes[active_node].link : root; //rule 2
     }
 }
 
@@ -155,6 +155,7 @@ vector<int64_t>* SuffixTrie::findSubstring(const string &t) const{
             dfs1(now,v);
             return v;
         }
+        //按照在字典树中查找子串的规则进行查找
         flag=1;
         for (const auto &item : nodes[now].next)
             if(item.first==t[step]){
@@ -185,14 +186,14 @@ string SuffixTrie::findMostRepeatSubstring(int64_t now,int64_t cnt,int64_t flag)
     for (const auto &item : nodes[now].next)
         if(nodes[item.second].end!=presetMax){
             cnt+=nodes[item.second].end-nodes[item.second].start;
-            findMostRepeatSubstring(item.second,cnt,1);
+            findMostRepeatSubstring(item.second,cnt,1); //dfs
             cnt-=nodes[item.second].end-nodes[item.second].start;
         }
-        else if(cnt>maxn){
+        else if(cnt>maxn){  //记录当前找到的最长的
             maxn=cnt;
             tail=nodes[now].end;
         }
-    if(!flag){
+    if(!flag){  //按照dfs得到的参数拼接字符串并返回
         for(int64_t i=0;i<maxn;++i)
             str+=text[i+tail-maxn];
         maxn=INT64_MIN;
@@ -201,8 +202,8 @@ string SuffixTrie::findMostRepeatSubstring(int64_t now,int64_t cnt,int64_t flag)
 }
 
 int64_t SuffixTrie::dfs2(SuffixTrie &st,int64_t now, int64_t cnt, int64_t first, int64_t &maxn, int64_t &tail) {
-    bool is1=0,is2=0,is3=0;
-    if(st.nodes[now].next.empty()){
+    bool is1=0,is2=0,is3=0; //用来标记当前节点的所有后代叶子节点的组合情况的状态
+    if(st.nodes[now].next.empty()){ //叶子节点的状态可以简单得到
         if(st.nodes[now].start>first)   return 2;
         else return 1;
     }
@@ -210,15 +211,15 @@ int64_t SuffixTrie::dfs2(SuffixTrie &st,int64_t now, int64_t cnt, int64_t first,
         auto res=dfs2(st, item.second, cnt+st.nodes[item.second].end-st.nodes[item.second].start, first, maxn, tail);
         if(res==1)  is1=1;
         if(res==2)  is2=1;
-        if(res==3 or (is1 and is2)) is3=1;
-        if(is3 and cnt>maxn){
+        if(res==3 or (is1 and is2)) is3=1;  //通过组合得到非叶子节点的状态
+        if(is3 and cnt>maxn){  //记录当前找到的最长的
             maxn=cnt;
             tail=st.nodes[now].end;
         }
     }
-    if(is3) return 3;
-    if(is2) return 2;
-    return 1;
+    if(is3) return 3;   //状态回溯
+    if(is2) return 2;   //状态回溯
+    return 1;   //状态回溯
 }
 
 string SuffixTrie::findLongestCommon(string &q, string &r){
@@ -234,9 +235,10 @@ string SuffixTrie::findLongestCommon(string &q, string &r){
     st.size=q.size()+1+r.size();
     st.root=st.remainder=st.active_node=st.active_length=st.active_edge=0;
     for (char ch : r)   st.addChar(ch);
-    dfs2(st,0,0,q.size(),maxn,tail);
+    //以上过程均为构造广义后缀树
+    dfs2(st,0,0,q.size(),maxn,tail);    //dfs找最长的
     string temp;
-    for(int64_t i=0;i<maxn;++i)
+    for(int64_t i=0;i<maxn;++i)  //按照dfs得到的参数拼接字符串并返回
         temp+=st.text[i+tail-maxn];
     delete []tempNodes;delete []tempText;
     return temp;
